@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Unit tests
+        run: go test ./... -count=1 -race -cover
+      - name: Smoke (file-only, no network mutation)
+        run: |
+          mkdir -p /tmp/vpnd-smoke
+          go build -o /tmp/vpnd-smoke/vpnctl ./cmd/vpnctl
+          go build -o /tmp/vpnd-smoke/vpnd ./cmd/vpnd
+          /tmp/vpnd-smoke/vpnctl init-server -output /tmp/vpnd-smoke/server.json \
+            -token-path /tmp/vpnd-smoke/token -store /tmp/vpnd-smoke/peers.json
+          /tmp/vpnd-smoke/vpnd -config /tmp/vpnd-smoke/server.json -dry-run
+
+  integration:
+    # Live WireGuard integration — only on manually triggered runs
+    # (workflow_dispatch) because it mutates network state inside the
+    # runner (AGENTS.md rule 5: disposable environments only).
+    runs-on: ubuntu-latest
+    needs: build-test
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+      - name: Kernel WireGuard availability
+        run: |
+          sudo modprobe wireguard 2>/dev/null || true
+          ls /sys/module/wireguard >/dev/null 2>&1 && echo "kernel module present" || \
+            echo "no kernel module; wireguard-go userspace would be required"
+      - name: Integration test
+        run: RUN_INTEGRATION=1 scripts/integration-check.sh

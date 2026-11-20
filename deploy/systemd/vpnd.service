@@ -1,0 +1,26 @@
+[Unit]
+Description=vpnd — WireGuard VPN platform daemon
+Documentation=file:///usr/share/doc/vpnd/runbook.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/vpnd --config /etc/vpnd/server.json --log-level info
+ExecReload=/bin/kill -HUP $MAINPID
+# hardening: no shell, no new privileges, restricted fs views
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/vpnd
+PrivateDevices=true
+ProtectKernelTunables=false   # vpnd must set net.ipv4.ip_forward
+ProtectKernelModules=true
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+Restart=on-failure
+RestartSec=2s
+
+[Install]
+WantedBy=multi-user.target
