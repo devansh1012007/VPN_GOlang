@@ -1,0 +1,19 @@
+# build artifacts
+/build/
+/bin/
+*.test
+*.out
+
+# local runtime state (never commit keys, tokens, stores)
+*.conf.local
+peers.json
+token
+server.json
+client.conf
+*.tmp
+
+# editor / os noise
+.idea/
+.vscode/
+*.swp
+.DS_Store
